@@ -419,8 +419,9 @@ https://pay.com?tradeType=PWA&appId=…&merchCode=…&prepayId=…&payToken=PWA:
 - Poll every **3–5 seconds**. Stop once `is_completed` is `true`, or once the
   order's payable window (`ASIA_PAY_TIMEOUT_EXPRESS`, 30 minutes by default)
   has passed.
-- An unpaid order reads `WAIT_PAY` and simply stays pending. Show a
-  "Try again" button; each retry starts a fresh payment and a fresh receipt.
+- An unpaid order reads `WAIT_PAY`, then `PAY_FAILED` once its window has
+  passed; its receipt simply stays pending. Show a "Try again" button; each
+  retry starts a fresh payment and a fresh receipt.
 
 ---
 
@@ -600,9 +601,16 @@ unknown order with `299`. The client therefore treats a call as successful
 only when `result == "SUCCESS"`, whatever the HTTP status, and returns
 `biz_content`.
 
-**Order statuses** (`queryOrder` → `order_status`): `WAIT_PAY` (not paid yet)
-and `PAY_SUCCESS` (paid) have been seen. AsiaPay documents no others. Only
-`PAY_SUCCESS` changes a receipt.
+**Order statuses** (`queryOrder` → `order_status`). AsiaPay documents only
+`PAY_SUCCESS`; these have been seen in the sandbox:
+
+| Status | Meaning |
+| --- | --- |
+| `WAIT_PAY` | Created, not paid yet |
+| `PAY_SUCCESS` | Paid |
+| `PAY_FAILED` | Not paid, e.g. left unpaid past `timeout_express` |
+
+Only `PAY_SUCCESS` changes a receipt.
 
 **Amounts.** IQD has no minor units, so the client sends whole numbers
 (`"25000"`). AsiaPay reads them back with three decimals (`"25000.000"`).
@@ -651,8 +659,10 @@ fake.create_order.return_value = {
 fake.query_order.return_value = {'order_status': 'PAY_SUCCESS'}
 
 # the service starts and syncs payments; the view reads signed callbacks
-with patch('asiapay.service.get_client', return_value=fake), \
-     patch('asiapay.views.get_client', return_value=fake):
+with (
+    patch('asiapay.service.get_client', return_value=fake),
+    patch('asiapay.views.get_client', return_value=fake),
+):
     ...  # call your start / status endpoints, or post to the callback
 ```
 
@@ -712,7 +722,7 @@ the callback, so complete the receipt with your status endpoint.
 | AsiaPay refuses the signature | Private key base64-decoded, wrong key, or body changed after signing | Use the key as the plain string; compare with jwt.io (see [signing](#how-the-request-is-signed)) |
 | `AsiaPay payment.queryorder returned 299: …` | Order not found, often an id from another environment | Check `ref_no` was created against this `ASIA_PAY_BASE_URL` |
 | Receipt stays pending in local development | AsiaPay cannot reach `localhost` | Poll your status endpoint, or set `ASIA_PAY_NOTIFY_URL` to a tunnel (ngrok, Cloudflare Tunnel) |
-| Receipt stays pending in production | Customer never paid (`WAIT_PAY`), or the callback URL is unreachable | `client.query_order(ref_no)`; check the `asiapay` logger for callback lines |
+| Receipt stays pending in production | Customer never paid (`WAIT_PAY`, then `PAY_FAILED`), or the callback URL is unreachable | `client.query_order(ref_no)`; check the `asiapay` logger for callback lines |
 | Payment completed but the side effect is missing | Your hook raised | Look for `AsiaPay payment hook … failed` in the `asiapay` logger |
 | New settings are ignored | Config is cached per process | Restart the server / worker; `conf.reset()` in tests |
 | Nothing is logged | The `asiapay` logger is not routed | See [Logging](#logging) |
@@ -767,10 +777,10 @@ release with a new version.
 - **Amounts are whole numbers.** `client._format_amount` rounds to whole
   units, which is right for IQD. A currency with cents needs a change in the
   package first.
-- **There is no failure or expiry hook.** An unpaid or expired order leaves
-  its receipt pending (`is_completed = False`) indefinitely. Pending receipts
-  should never count toward anything, and your project may want to clean up
-  old ones.
+- **There is no failure or expiry hook.** An unpaid or expired order
+  (`PAY_FAILED`) leaves its receipt pending (`is_completed = False`)
+  indefinitely. Pending receipts should never count toward anything, and your
+  project may want to clean up old ones.
 - **Refunds do not touch the receipt.** `client.refund()` calls AsiaPay and
   returns `refund_status`. Reversing the payment in your own books is up to
   you.

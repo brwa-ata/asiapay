@@ -47,6 +47,8 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 88
 target-version = "py310"
+# README examples are laid out by hand; formatting them would mangle them
+extend-exclude = ["*.md"]
 
 [tool.ruff.format]
 quote-style = "single"
