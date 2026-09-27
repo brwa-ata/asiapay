@@ -1,0 +1,52 @@
+[project]
+name = "asiapay"
+version = "0.1.0"
+description = "AsiaPay payment gateway for Django: web (Checkout), mobile (Cross-App) and static QR (PWA) payments."
+readme = "README.md"
+authors = [
+    { name = "Brwa Atta", email = "brwa.ata.hamalaw@gmail.com" }
+]
+requires-python = ">=3.10"
+keywords = ["asiapay", "payment", "gateway", "django", "iraq"]
+classifiers = [
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "django>=4.2",
+    "djangorestframework>=3.14",
+    "pyjwt>=2.5",
+    "requests>=2.28",
+]
+
+[project.urls]
+Homepage = "https://github.com/brwa-ata/asiapay"
+Repository = "https://github.com/brwa-ata/asiapay"
+Changelog = "https://github.com/brwa-ata/asiapay/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["uv_build>=0.11.8,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-django>=4.9",
+    "ruff>=0.15",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.format]
+quote-style = "single"
